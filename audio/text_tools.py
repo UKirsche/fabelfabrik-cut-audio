@@ -1,6 +1,6 @@
 import os
 
-def split_text_into_chunks(text: str, max_length: int = 3000) -> list[str]:
+def split_text_into_chunks(text: str, max_length: int = 2500) -> list[str]:
     """
     Teilt den Text in Abschnitte von maximal max_length Zeichen.
     Jeder Abschnitt endet an einem Punkt (.)
