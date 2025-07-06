@@ -4,6 +4,8 @@ from tkinter import filedialog, messagebox
 from .youtube_downloader import (YouTubeDownloader, YouTubeDownloaderError, 
                                  InvalidURLError, NetworkError, PermissionError, 
                                  VideoUnavailableError, FormatError)
+from .video_converter import (VideoConverter, VideoConverterError, InputFileError,
+                             OutputFileError, ConversionError)
 
 class AudioController:
     """Verbindet GUI, Combiner & Text-Tools."""
@@ -13,8 +15,10 @@ class AudioController:
         self.combiner = combiner
         self.text_tools = text_tools
         self.youtube_downloader = YouTubeDownloader()
+        self.video_converter = VideoConverter()
         self._connect_events()
         self._connect_youtube_events()
+        self._connect_video_events()
 
     def _connect_events(self):
         """Bindet Buttons an Funktionen."""
@@ -22,10 +26,15 @@ class AudioController:
         self.gui.btn_output.config(command=self.save_file)
         self.gui.btn_combine.config(command=self.combine)
         self.gui.btn_split_text.config(command=self.split_and_save_text)
-    
+
     def _connect_youtube_events(self):
         """Bind YouTube download button"""
         self.gui.btn_youtube_download.config(command=self.download_youtube)
+
+    def _connect_video_events(self):
+        """Bind Video conversion buttons"""
+        self.gui.btn_video_file.config(command=self.select_video_file)
+        self.gui.btn_convert_gif.config(command=self.convert_to_gif)
 
     # === MP3 COMBINE ===
     def select_files(self):
@@ -75,7 +84,7 @@ class AudioController:
 
             combined = self.combiner.combine_files(files, progress_callback=progress_callback)
             self.combiner.export(combined, output_path)
-            
+
             # Schedule success message in main thread
             self.gui.root.after(0, lambda: messagebox.showinfo("Fertig", f"Datei gespeichert: {output_path}"))
 
@@ -103,7 +112,7 @@ class AudioController:
         if output_dir:
             self.text_tools.save_chunks_to_files(text, output_dir)
             messagebox.showinfo("Erfolg", f"Chunks gespeichert: {output_dir}")
-    
+
     # === YOUTUBE DOWNLOAD ===
     def download_youtube(self):
         """Get URL from GUI, validate it, start download in separate thread"""
@@ -111,20 +120,20 @@ class AudioController:
         if not url:
             messagebox.showwarning("Warnung", "Bitte YouTube URL eingeben.")
             return
-        
+
         # Basic URL validation
         if not ("youtube.com" in url or "youtu.be" in url):
             messagebox.showwarning("Warnung", "Bitte eine gültige YouTube URL eingeben.")
             return
-        
+
         # Disable download button and reset progress
         self.gui.btn_youtube_download['state'] = "disabled"
         self.gui.progress_youtube['value'] = 0
         self.gui.set_download_status("Download wird vorbereitet...")
-        
+
         # Start download in separate thread
         threading.Thread(target=self._download_thread, args=(url,)).start()
-    
+
     def _download_thread(self, url):
         """Handle download process, update progress, handle errors"""
         try:
@@ -134,7 +143,7 @@ class AudioController:
                 download_dir = os.path.dirname(output_path)
             else:
                 download_dir = os.path.expanduser("~")
-            
+
             # Progress callback to update GUI
             def progress_callback(progress_data):
                 status = progress_data.get('status', '')
@@ -149,56 +158,152 @@ class AudioController:
                 elif status == 'error':
                     error_msg = progress_data.get('error', 'Unbekannter Fehler')
                     self.gui.set_download_status(f"Fehler: {error_msg}")
-                
+
                 # Update GUI in main thread
                 self.gui.root.update_idletasks()
-            
+
             # Start download
             downloaded_file = self.youtube_downloader.download(url, download_dir, progress_callback)
-            
+
             # Add downloaded file to listbox
             self.gui.listbox_files.insert("end", downloaded_file)
-            
+
             # Update status
             filename = os.path.basename(downloaded_file)
             self.gui.set_download_status(f"Download erfolgreich: {filename}")
-            
+
             # Show success message
             messagebox.showinfo("Download abgeschlossen", f"Datei heruntergeladen: {filename}")
-            
+
         except InvalidURLError as e:
             self.gui.set_download_status(f"Ungültige URL: {str(e)}")
             messagebox.showerror("Ungültige URL", str(e))
-            
+
         except VideoUnavailableError as e:
             self.gui.set_download_status(f"Video nicht verfügbar: {str(e)}")
             messagebox.showerror("Video nicht verfügbar", str(e))
-            
+
         except NetworkError as e:
             self.gui.set_download_status(f"Netzwerk-Fehler: {str(e)}")
             messagebox.showerror("Netzwerk-Fehler", 
                                f"{str(e)}\n\nBitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.")
-            
+
         except PermissionError as e:
             self.gui.set_download_status(f"Berechtigung-Fehler: {str(e)}")
             messagebox.showerror("Berechtigung-Fehler", 
                                f"{str(e)}\n\nBitte überprüfen Sie die Ordnerberechtigung oder wählen Sie einen anderen Speicherort.")
-            
+
         except FormatError as e:
             self.gui.set_download_status(f"Format-Fehler: {str(e)}")
             messagebox.showerror("Format-Fehler", str(e))
-            
+
         except YouTubeDownloaderError as e:
             error_msg = str(e)
             self.gui.set_download_status(f"Download-Fehler: {error_msg}")
             messagebox.showerror("Download-Fehler", error_msg)
-            
+
         except Exception as e:
             error_msg = f"Unerwarteter Fehler: {str(e)}"
             self.gui.set_download_status(error_msg)
             messagebox.showerror("Unerwarteter Fehler", 
                                f"{error_msg}\n\nBitte versuchen Sie es erneut oder kontaktieren Sie den Support, wenn das Problem weiterhin besteht.")
-            
+
         finally:
             # Re-enable download button
             self.gui.btn_youtube_download['state'] = "normal"
+
+    # === VIDEO CONVERSION ===
+    def select_video_file(self):
+        """Open file dialog to select an MP4 file"""
+        file = filedialog.askopenfilename(
+            title="Video wählen",
+            filetypes=[("Video Dateien", "*.mp4 *.avi *.mov *.mkv")]
+        )
+        if file:
+            self.gui.set_video_file(file)
+
+    def convert_to_gif(self):
+        """Convert selected MP4 file to GIF with selected resolution"""
+        input_file = self.gui.get_video_file()
+        if not input_file:
+            messagebox.showwarning("Warnung", "Bitte MP4-Datei auswählen.")
+            return
+
+        # Get output directory (same as input file directory)
+        output_dir = os.path.dirname(input_file)
+
+        # Get selected resolution
+        resolution = self.gui.get_gif_resolution()
+
+        # Disable convert button and reset progress
+        self.gui.btn_convert_gif['state'] = "disabled"
+        self.gui.progress_video['value'] = 0
+        self.gui.set_video_status("Konvertierung wird vorbereitet...")
+
+        # Start conversion in separate thread
+        threading.Thread(target=self._convert_thread, args=(input_file, output_dir, resolution)).start()
+
+    def _convert_thread(self, input_file, output_dir, resolution):
+        """Handle conversion process, update progress, handle errors"""
+        try:
+            # Progress callback to update GUI
+            def progress_callback(progress_data):
+                status = progress_data.get('status', '')
+                if status == 'converting':
+                    percent = progress_data.get('percent', 0)
+                    self.gui.progress_video['value'] = percent
+                    filename = os.path.basename(progress_data.get('filename', ''))
+                    self.gui.set_video_status(f"Konvertierung läuft: {filename} ({percent:.1f}%)")
+                elif status == 'finished':
+                    self.gui.progress_video['value'] = 100
+                    self.gui.set_video_status("Konvertierung abgeschlossen")
+
+                # Update GUI in main thread
+                self.gui.root.update_idletasks()
+
+            # Start conversion
+            output_file = self.video_converter.convert_to_gif(
+                input_file, 
+                output_dir, 
+                resolution=resolution,
+                progress_callback=progress_callback
+            )
+
+            # Update status
+            filename = os.path.basename(output_file)
+            self.gui.set_video_status(f"Konvertierung erfolgreich: {filename}")
+
+            # Show success message
+            messagebox.showinfo("Konvertierung abgeschlossen", f"GIF erstellt: {filename}")
+
+        except InputFileError as e:
+            self.gui.set_video_status(f"Eingabedatei-Fehler: {str(e)}")
+            messagebox.showerror("Eingabedatei-Fehler", str(e))
+
+        except OutputFileError as e:
+            self.gui.set_video_status(f"Ausgabedatei-Fehler: {str(e)}")
+            messagebox.showerror("Ausgabedatei-Fehler", str(e))
+
+        except ConversionError as e:
+            self.gui.set_video_status(f"Konvertierungs-Fehler: {str(e)}")
+            messagebox.showerror("Konvertierungs-Fehler", str(e))
+
+        except PermissionError as e:
+            self.gui.set_video_status(f"Berechtigung-Fehler: {str(e)}")
+            messagebox.showerror("Berechtigung-Fehler", 
+                               f"{str(e)}\n\nBitte überprüfen Sie die Ordnerberechtigung oder wählen Sie einen anderen Speicherort.")
+
+        except VideoConverterError as e:
+            error_msg = str(e)
+            self.gui.set_video_status(f"Konvertierungs-Fehler: {error_msg}")
+            messagebox.showerror("Konvertierungs-Fehler", error_msg)
+
+        except Exception as e:
+            error_msg = f"Unerwarteter Fehler: {str(e)}"
+            self.gui.set_video_status(error_msg)
+            messagebox.showerror("Unerwarteter Fehler", 
+                               f"{error_msg}\n\nBitte versuchen Sie es erneut oder kontaktieren Sie den Support, wenn das Problem weiterhin besteht.")
+
+        finally:
+            # Re-enable convert button
+            self.gui.btn_convert_gif['state'] = "normal"
