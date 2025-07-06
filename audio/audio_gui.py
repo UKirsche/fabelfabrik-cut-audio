@@ -9,10 +9,71 @@ class AudioGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("MP3 & ElevenLabs Tool")
-        self._build_ui()
+        
+        # Get screen dimensions and calculate appropriate window size
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        # For MacBook Air 13" (1440x900) and similar small screens, use more conservative sizing
+        if screen_height <= 900:  # MacBook Air or similar
+            window_width = min(800, int(screen_width * 0.75))
+            window_height = min(650, int(screen_height * 0.70))  # Even smaller height for better fit
+        else:
+            window_width = min(900, int(screen_width * 0.8))
+            window_height = min(800, int(screen_height * 0.85))
+        
+        # Calculate position to center the window
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        
+        # Set window size and position
+        self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        
+        # Set minimum size (smaller for better compatibility with small screens)
+        self.root.minsize(550, 400)
+        
+        self._setup_scrollable_ui()
 
+    def _setup_scrollable_ui(self):
+        """Setup a scrollable UI for better compatibility with small screens"""
+        # Main canvas and scrollbar setup
+        self.canvas = tk.Canvas(self.root)
+        self.scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        )
+        
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        
+        # Layout canvas and scrollbar
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+        
+        # Enable mouse wheel scrolling
+        self._bind_mouse_wheel()
+        
+        # Build the actual UI content
+        self._build_ui()
+        
+    def _bind_mouse_wheel(self):
+        """Bind mouse wheel events for scrolling"""
+        def _on_mousewheel(event):
+            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        # Bind to canvas and main window
+        self.canvas.bind("<MouseWheel>", _on_mousewheel)  # Windows
+        self.canvas.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))  # Linux
+        self.canvas.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))  # Linux
+        
     def _build_ui(self):
-        frame = ttk.Frame(self.root, padding=10)
+        # Get screen height for UI adjustments
+        screen_height = self.root.winfo_screenheight()
+        
+        frame = ttk.Frame(self.scrollable_frame, padding=10)
         frame.grid(row=0, column=0, sticky="nsew")
 
         # === AUDIO-BEREICH ===
@@ -37,7 +98,9 @@ class AudioGUI:
         ttk.Label(frame, text="Text", font=("Arial", 12, "bold")).grid(row=9, column=0, sticky="w", pady=(0,5))
 
         # === TEXT-BEREICH ===
-        self.text_input = tk.Text(frame, height=20, wrap="word")
+        # Reduce text area height on smaller screens to ensure YouTube section is visible
+        text_height = 15 if screen_height <= 900 else 20
+        self.text_input = tk.Text(frame, height=text_height, wrap="word")
         self.text_input.grid(row=10, column=0, columnspan=2, sticky="nsew")
         
         # Chunk-Länge Eingabefeld
@@ -51,10 +114,45 @@ class AudioGUI:
         self.btn_split_text = ttk.Button(chunk_frame, text="Text teilen & speichern")
         self.btn_split_text.grid(row=0, column=2, sticky="w", padx=(20, 0))
 
+        # Separator + Überschrift YouTube-Bereich
+        ttk.Separator(frame, orient='horizontal').grid(row=12, column=0, columnspan=2, sticky="ew", pady=15)
+        ttk.Label(frame, text="YouTube Download", font=("Arial", 12, "bold")).grid(row=13, column=0, sticky="w", pady=(0,5))
+        
+        # === YOUTUBE-BEREICH ===
+        self._build_youtube_section(frame)
+
         # Layout-Konfiguration
-        self.root.columnconfigure(0, weight=1)
+        self.scrollable_frame.columnconfigure(0, weight=1)
+        self.scrollable_frame.rowconfigure(0, weight=1)
         frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(10, weight=1)
+        frame.rowconfigure(10, weight=1)  # Text area should expand
+
+    def _build_youtube_section(self, frame):
+        """Create and layout YouTube download UI elements"""
+        # URL input field
+        ttk.Label(frame, text="YouTube URL:").grid(row=14, column=0, sticky="w")
+        self.entry_youtube_url = ttk.Entry(frame, width=50)
+        self.entry_youtube_url.grid(row=15, column=0, sticky="ew")
+        
+        # Download button
+        self.btn_youtube_download = ttk.Button(frame, text="Download")
+        self.btn_youtube_download.grid(row=15, column=1, sticky="w", padx=(5, 0))
+        
+        # Progress bar
+        self.progress_youtube = ttk.Progressbar(frame)
+        self.progress_youtube.grid(row=16, column=0, columnspan=2, sticky="ew", pady=5)
+        
+        # Status label
+        self.label_youtube_status = ttk.Label(frame, text="")
+        self.label_youtube_status.grid(row=17, column=0, columnspan=2, sticky="w")
+        
+    def get_youtube_url(self):
+        """Return URL from input field"""
+        return self.entry_youtube_url.get().strip()
+        
+    def set_download_status(self, status):
+        """Update status label"""
+        self.label_youtube_status.config(text=status)
 
     def get_chunk_length(self) -> int:
         """Gibt die vom Benutzer eingegebene Chunk-Länge zurück."""

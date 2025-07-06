@@ -1,0 +1,9 @@
+altgraph==0.17.4
+macholib==1.16.3
+packaging==25.0
+pydub==0.25.1
+pyinstaller==6.14.1
+pyinstaller-hooks-contrib==2025.5
+setuptools==80.9.0
+wheel @ file:///opt/homebrew/Cellar/python%403.12/3.12.2_1/libexec/wheel-0.42.0-py3-none-any.whl#sha256=5f1ca525bef7466225922019d72cb06a9e91cd3ff807ddd4be1acb84655e5107
+yt-dlp==2025.6.25

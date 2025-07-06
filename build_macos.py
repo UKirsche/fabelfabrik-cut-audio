@@ -100,7 +100,7 @@ class Builder:
         print("🔍 Prüfe Abhängigkeiten...")
         
         # Python-Module
-        required_modules = ['tkinter', 'pydub']
+        required_modules = ['tkinter', 'pydub', 'yt_dlp']
         missing_modules = []
         
         for module in required_modules:
