@@ -157,7 +157,7 @@ class AudioGUI:
     def _build_video_section(self, frame):
         """Create and layout Video to GIF conversion UI elements"""
         # File selection
-        ttk.Label(frame, text="Mp4 to Gif", font=("Arial", 12, "bold")).grid(row=19, column=0, sticky="w", pady=(0,5))
+        ttk.Label(frame, text="MP4 to Gif", font=("Arial", 12, "bold")).grid(row=19, column=0, sticky="w", pady=(0,5))
         ttk.Label(frame, text="MP4-Datei:").grid(row=20, column=0, sticky="w")
         self.entry_video_file = ttk.Entry(frame, width=50)
         self.entry_video_file.grid(row=20, column=0, sticky="ew")
