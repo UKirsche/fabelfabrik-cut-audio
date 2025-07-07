@@ -122,7 +122,11 @@ class VideoConverter:
 
     def _prepare_ffmpeg_command(self, input_file: str, output_path: str, resolution: str, fps: int) -> list:
         """Prepare FFmpeg command for conversion"""
-        cmd = ["ffmpeg", "-i", input_file]
+        cmd = [
+            "ffmpeg",
+            "-y",  # ← WICHTIG: Automatisches Überschreiben ohne Nachfrage!
+            "-i", input_file
+        ]
 
         # Add resolution filter if not original
         if resolution != "Original":
